@@ -62,6 +62,7 @@ class TritonPersistentCacheAutotuner(triton.runtime.Autotuner):
             if key not in self.cache:
                 # prune configs
                 used_cached_result = False
+                print(f"[FlexGEMM] CACHE MISS: {self.base_fn.__name__} key={key}")
                 pruned_configs = self.prune_configs(kwargs)
                 bench_start = time.time()
                 timings = {config: self._bench(*args, config=config, **kwargs) for config in pruned_configs}
@@ -71,6 +72,8 @@ class TritonPersistentCacheAutotuner(triton.runtime.Autotuner):
                 full_nargs = {**self.nargs, **kwargs, **self.cache[key].all_kwargs()}
                 self.pre_hook(full_nargs, reset_only=True)
                 self.configs_timings = timings
+            # else:
+            #     print(f"[FlexGEMM] CACHE HIT: {self.base_fn.__name__} key={key} config={self.cache[key]}")
             config = self.cache[key]
         else:
             config = self.configs[0]
@@ -248,15 +251,19 @@ class PersistentCacheAutoTuner:
         used_cached_result = True
         if key not in self.cache:
             used_cached_result = False
+            print(f"[FlexGEMM] CACHE MISS: {self.kernel.__name__} key={key}")
             if self.verbose:
                 print(f"Running autotuning for {self.kernel.__name__} with key {key}")
             configs = self.configs if self.configs else self.config_fn(*args, **kwargs)
             if self.verbose:
                 print(f"Configs: {configs}")
             best_config = self._benchmark(args, kwargs, configs)
+            print(f"[FlexGEMM] AUTOTUNED: {self.kernel.__name__} key={key} best={best_config}")
             if self.verbose:
                 print(f"Best config for {self.kernel.__name__} with key {key}: {best_config}")
             self.cache[key] = best_config
+        # else:
+            # print(f"[FlexGEMM] CACHE HIT: {self.kernel.__name__} key={key} config={self.cache[key]}")
             
         if AUTOSAVE_AUTOTUNE_CACHE and not used_cached_result:
             save_autotune_cache()
@@ -363,6 +370,7 @@ def save_autotune_cache(path=None):
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp_path, path)
+    print(f"[FlexGEMM] CACHE SAVED to {path}")
 
 
 def load_autotune_cache(path_or_cache=None):
@@ -371,9 +379,11 @@ def load_autotune_cache(path_or_cache=None):
     # Preserve path-based loading, but allow callers to provide a preloaded cache object.
     if path_or_cache is None or isinstance(path_or_cache, (str, os.PathLike)):
         path = path_or_cache or AUTOTUNE_CACHE_PATH
+        print(f"[FlexGEMM] LOADING CACHE from {path}")
         lock_path = path + ".lock"
 
         if not os.path.exists(path):
+            print(f"[FlexGEMM] CACHE FILE NOT FOUND: {path}")
             return
 
         with FileLock(lock_path):
@@ -385,10 +395,13 @@ def load_autotune_cache(path_or_cache=None):
         raise TypeError("load_autotune_cache expects a path or a mapping")
 
     if cache is None:
+        print(f"[FlexGEMM] NO CACHE TO LOAD")
         return
 
     device_name = torch.cuda.get_device_name()
+    print(f"[FlexGEMM] FINDING CACHE for device: {device_name}")
     if device_name not in cache and "*" not in cache:
+        print(f"[FlexGEMM] NO CACHE FOR DEVICE: {device_name}")
         return
     if "*" in cache and device_name not in cache:
         device_name = "*"
