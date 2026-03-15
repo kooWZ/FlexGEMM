@@ -389,6 +389,9 @@ def load_autotune_cache(path_or_cache=None):
         with FileLock(lock_path):
             with open(path, 'r') as f:
                 cache = json.load(f)
+                for device, device_cache in cache.items():
+                    nonempty_entries = {k: v for k, v in device_cache.items() if v}
+                    print(f"[FlexGEMM] LOADED CACHE for device: {device} with {len(device_cache)} entries, {len(nonempty_entries)} non-empty entries")
     elif isinstance(path_or_cache, Mapping):
         cache = path_or_cache
     else:

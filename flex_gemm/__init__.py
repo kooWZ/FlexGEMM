@@ -1,6 +1,8 @@
 import os
 USE_AUTOTUNE_CACHE = os.environ.get('FLEX_GEMM_USE_AUTOTUNE_CACHE', '1') == '1'
 AUTOSAVE_AUTOTUNE_CACHE = os.environ.get('FLEX_GEMM_AUTOSAVE_AUTOTUNE_CACHE', '1') == '1'
+# print current os.environ
+print(f"Current environment variables: {os.environ}")
 AUTOTUNE_CACHE_PATH = os.environ.get(
     'FLEX_GEMM_AUTOTUNE_CACHE_PATH',
     os.path.expanduser('~/.flex_gemm/autotune_cache.json')
